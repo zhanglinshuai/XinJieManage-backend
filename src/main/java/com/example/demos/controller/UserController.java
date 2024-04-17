@@ -44,7 +44,7 @@ public class UserController {
             return null;
         }
         //密码与校验密码是否相等
-        if (userPassword.equals(checkPassword)) {
+        if (!userPassword.equals(checkPassword)) {
             return null;
         }
         //星球编号长度最多为5位
@@ -53,7 +53,7 @@ public class UserController {
         }
         //校验用户账号是否含有非法字符
         boolean result = userService.verifyUserAccount(userAccount);
-        if (result) {
+        if (!result) {
             return null;
         }
         long userId = userService.userRegister(userAccount, userPassword, checkPassword, planetCode);

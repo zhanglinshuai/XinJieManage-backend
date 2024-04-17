@@ -48,7 +48,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             return -1;
         }
         //密码与校验密码是否相等
-        if (userPassword.equals(checkPassword)) {
+        if (!userPassword.equals(checkPassword)) {
             return -1;
         }
         //星球编号长度最多为5位
@@ -72,8 +72,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         }
         //创建新用户,并将新用户设置值，将密码密文存储到数据库中
         User user = new User();
+
         user.setUserAccount(userAccount);
         user.setUserPassword(safetyPassword);
+        user.setPlanetCode(planetCode);
         boolean save = this.save(user);
         //如果save为false
         if (!save) {
@@ -110,8 +112,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         User user = this.getOne(userQueryWrapper);
         //对用户信息进行脱敏
         User safetyUser = getSafetyUser(user);
+        if (safetyUser==null){
+            return null;
+        }
         //将用户信息存储到session中
         request.getSession().setAttribute(USER_LOGIN_STATUS, safetyUser);
+
         //返回脱敏后的用户信息
         return safetyUser;
     }
@@ -216,6 +222,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
      */
     public User getSafetyUser(User originUser) {
         User user = new User();
+        user.setId(originUser.getId());
         user.setUsername(originUser.getUsername());
         user.setUserAccount(originUser.getUserAccount());
         user.setAvatarUrl(originUser.getAvatarUrl());
@@ -254,7 +261,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         String regEx = "[\\u00A0\\s\"`~!@#$%^&*()+=|{}':;',\\[\\].<>/?~！@#￥%……&*（）——+|{}【】‘；：”“’。，、？]";
         Pattern compile = Pattern.compile(regEx);
         Matcher matcher = compile.matcher(userAccount);
-        //如果find找到成功之后，返回-1
+        //如果find找到成功之后，返回false
         if (matcher.find()) {
             return false;
         }
