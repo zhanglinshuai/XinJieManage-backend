@@ -56,8 +56,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             return -1;
         }
         //校验账号中是否含有非法字符
-        Integer result = verifyUserAccount(userAccount);
-        if (result != null) return result;
+        boolean result = verifyUserAccount(userAccount);
+        if (!result){
+            return -1;
+        }
         //对密码进行加密
         String safetyPassword = DigestUtils.md5DigestAsHex((userPassword + SALT).getBytes());
         //查询账号是否重复
@@ -96,8 +98,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             return null;
         }
         //校验用户账号含有特殊字符
-        Integer result = verifyUserAccount(userAccount);
-        if (result != null) {
+        boolean result = verifyUserAccount(userAccount);
+        if (!result) {
             return null;
         }
         //从数据库中查询用户，校验账号和密码与存入数据库中的密文密码是否相等
@@ -117,6 +119,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
     @Override
     public boolean userLogout(HttpServletRequest request) {
+        if (request==null){
+            return false;
+        }
         request.getSession().removeAttribute(USER_LOGIN_STATUS);
         return true;
     }
@@ -149,6 +154,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
     @Override
     public User getCurrentUser(HttpServletRequest request) {
+        if (request==null){
+            return null;
+        }
         //从登录态中获取登录用户信息
         User user = getUser(request);
         if (user == null) {
@@ -161,6 +169,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
     @Override
     public List<User> getUserList(HttpServletRequest request) {
+        if (request==null){
+            return null;
+        }
         User user = getUser(request);
         if (user == null) {
             return null;
@@ -178,7 +189,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
 
     @Override
-    public boolean deleteUserById(HttpServletRequest request) {
+    public boolean deleteUserById(long id,HttpServletRequest request) {
         //从登录态中取出用户信息
         User user = getUser(request);
         if (user == null) {
@@ -189,7 +200,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         if (!admin){
             return false;
         }
-        boolean result = this.removeById(user.getId());
+        boolean result = this.removeById(id);
         if (!result){
             return false;
         }
@@ -205,7 +216,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
      */
     public User getSafetyUser(User originUser) {
         User user = new User();
-
         user.setUsername(originUser.getUsername());
         user.setUserAccount(originUser.getUserAccount());
         user.setAvatarUrl(originUser.getAvatarUrl());
@@ -240,15 +250,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
      * @param userAccount
      * @return
      */
-    private static Integer verifyUserAccount(String userAccount) {
+    public  boolean verifyUserAccount(String userAccount) {
         String regEx = "[\\u00A0\\s\"`~!@#$%^&*()+=|{}':;',\\[\\].<>/?~！@#￥%……&*（）——+|{}【】‘；：”“’。，、？]";
         Pattern compile = Pattern.compile(regEx);
         Matcher matcher = compile.matcher(userAccount);
         //如果find找到成功之后，返回-1
         if (matcher.find()) {
-            return -1;
+            return false;
         }
-        return null;
+        return true;
     }
 
     /**
@@ -257,7 +267,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
      * @param request
      * @return
      */
-    private static User getUser(HttpServletRequest request) {
+    private  User getUser(HttpServletRequest request) {
         //从登录态中获取用户信息
         Object obj = request.getSession().getAttribute(USER_LOGIN_STATUS);
         User user = (User) obj;

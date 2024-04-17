@@ -76,6 +76,13 @@ public interface UserService extends IService<User> {
     boolean isAdmin(HttpServletRequest request);
 
     /**
+     * 校验用户账号是否含有非法字符
+     * @param userAccount
+     * @return
+     */
+    boolean verifyUserAccount(String userAccount);
+
+    /**
      * 获取所有用户信息
      * @param request
      * @return
@@ -86,7 +93,8 @@ public interface UserService extends IService<User> {
     /**
      * 删除用户
      * @param request
+     * @param id  要删除的用户id
      * @return
      */
-    boolean deleteUserById(HttpServletRequest request);
+    boolean deleteUserById(long id,HttpServletRequest request);
 }
