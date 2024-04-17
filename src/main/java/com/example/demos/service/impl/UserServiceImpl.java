@@ -1,12 +1,12 @@
 package com.example.demos.service.impl;
 
-import java.util.Date;
-
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.example.demos.commons.ErrorCode;
+import com.example.demos.exception.BaseException;
+import com.example.demos.mapper.UserMapper;
 import com.example.demos.pojo.domain.User;
 import com.example.demos.service.UserService;
-import com.example.demos.mapper.UserMapper;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
@@ -37,28 +37,28 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     public long userRegister(String userAccount, String userPassword, String checkPassword, String planetCode) {
         //非空校验
         if (StringUtils.isAnyBlank(userAccount, userPassword, checkPassword, planetCode)) {
-            return -1;
+            throw new BaseException(ErrorCode.PARAMS_ERROR,"参数为空");
         }
         //账号长度最少为4位
         if (userAccount.length() < 4) {
-            return -1;
+            throw new BaseException(ErrorCode.PARAMS_ERROR,"账号长度过短");
         }
         //密码长度最少为6位
         if (userPassword.length() < 6 || checkPassword.length() < 6) {
-            return -1;
+            throw new BaseException(ErrorCode.PARAMS_ERROR,"密码长度过短");
         }
         //密码与校验密码是否相等
         if (!userPassword.equals(checkPassword)) {
-            return -1;
+            throw new BaseException(ErrorCode.PARAMS_ERROR,"密码与校验密码不同");
         }
         //星球编号长度最多为5位
         if (planetCode.length() > 4) {
-            return -1;
+            throw new BaseException(ErrorCode.PARAMS_ERROR,"星球编号过长");
         }
         //校验账号中是否含有非法字符
         boolean result = verifyUserAccount(userAccount);
         if (!result){
-            return -1;
+            throw new BaseException(ErrorCode.PARAMS_ERROR,"账号含有特殊字符");
         }
         //对密码进行加密
         String safetyPassword = DigestUtils.md5DigestAsHex((userPassword + SALT).getBytes());
@@ -68,7 +68,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         Long count = userMapper.selectCount(userQueryWrapper);
         //如果count>0说明账号重复了
         if (count > 0) {
-            return -1;
+            throw new BaseException(ErrorCode.PARAMS_ERROR,"账号重复了");
         }
         //创建新用户,并将新用户设置值，将密码密文存储到数据库中
         User user = new User();
@@ -79,7 +79,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         boolean save = this.save(user);
         //如果save为false
         if (!save) {
-            return -1;
+            throw new BaseException(ErrorCode.SYSTEM_ERROR,"插入失败");
         }
         return user.getId();
     }
@@ -89,20 +89,20 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     public User userLogin(String userAccount, String userPassword, HttpServletRequest request) {
         //非空判断
         if (StringUtils.isAnyBlank(userAccount, userPassword)) {
-            return null;
+            throw new BaseException(ErrorCode.PARAMS_ERROR,"参数为空");
         }
         //账号长度不少于4位
         if (userAccount.length() < 4) {
-            return null;
+            throw new BaseException(ErrorCode.PARAMS_ERROR,"账号长度过短");
         }
         //密码不少于6位
         if (userPassword.length() < 6) {
-            return null;
+            throw new BaseException(ErrorCode.PARAMS_ERROR,"密码长度过短");
         }
         //校验用户账号含有特殊字符
         boolean result = verifyUserAccount(userAccount);
         if (!result) {
-            return null;
+            throw new BaseException(ErrorCode.PARAMS_ERROR,"账号含有特殊字符");
         }
         //从数据库中查询用户，校验账号和密码与存入数据库中的密文密码是否相等
         String safetyPassword = DigestUtils.md5DigestAsHex((userPassword + SALT).getBytes());
@@ -110,11 +110,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         userQueryWrapper.eq("userAccount", userAccount);
         userQueryWrapper.eq("userPassword", safetyPassword);
         User user = this.getOne(userQueryWrapper);
+        if (user==null){
+            throw new BaseException(ErrorCode.SYSTEM_ERROR,"未查到该用户");
+        }
         //对用户信息进行脱敏
         User safetyUser = getSafetyUser(user);
-        if (safetyUser==null){
-            return null;
-        }
+
         //将用户信息存储到session中
         request.getSession().setAttribute(USER_LOGIN_STATUS, safetyUser);
 
@@ -126,7 +127,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     @Override
     public boolean userLogout(HttpServletRequest request) {
         if (request==null){
-            return false;
+            throw new BaseException(ErrorCode.PARAMS_ERROR);
         }
         request.getSession().removeAttribute(USER_LOGIN_STATUS);
         return true;
@@ -136,23 +137,23 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     public User queryUserByName(String username, HttpServletRequest request) {
         //非空校验
         if (StringUtils.isBlank(username)) {
-            return null;
+            throw new BaseException(ErrorCode.PARAMS_ERROR);
         }
         //用户长度校验
         if (username.length() < 4) {
-            return null;
+            throw new BaseException(ErrorCode.PARAMS_ERROR);
         }
         //是否为管理员校验
         boolean admin = isAdmin(request);
         if (!admin) {
-            return null;
+            throw new BaseException(ErrorCode.NO_AUTH,"该用户不是管理员");
         }
         //是管理员根据用户名称进行查询用户信息
         QueryWrapper<User> userQueryWrapper = new QueryWrapper<>();
         userQueryWrapper.eq("username", username);
         User user = this.getOne(userQueryWrapper);
         if (user == null) {
-            return null;
+            throw new BaseException(ErrorCode.SYSTEM_ERROR,"未查到该用户");
         }
         //对用户信息进行脱敏,返回脱敏后的用户信息
         return getSafetyUser(user);
@@ -161,12 +162,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     @Override
     public User getCurrentUser(HttpServletRequest request) {
         if (request==null){
-            return null;
+            throw new BaseException(ErrorCode.PARAMS_ERROR);
         }
         //从登录态中获取登录用户信息
         User user = getUser(request);
         if (user == null) {
-            return null;
+            throw new BaseException(ErrorCode.NOT_LOGIN,"用户未登录");
         }
         //返回脱敏后的用户信息
         return getSafetyUser(user);
@@ -176,16 +177,16 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     @Override
     public List<User> getUserList(HttpServletRequest request) {
         if (request==null){
-            return null;
+            throw new BaseException(ErrorCode.PARAMS_ERROR);
         }
         User user = getUser(request);
         if (user == null) {
-            return null;
+            throw new BaseException(ErrorCode.PARAMS_ERROR);
         }
         //判断用户是否为管理员
         boolean admin = isAdmin(request);
         if (!admin) {
-            return null;
+            throw new BaseException(ErrorCode.NO_AUTH,"该用户不是管理员");
         }
         //直接查询用户列表
         List<User> userList = this.list();
@@ -199,16 +200,16 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         //从登录态中取出用户信息
         User user = getUser(request);
         if (user == null) {
-            return false;
+            throw new BaseException(ErrorCode.PARAMS_ERROR);
         }
         //校验用户是否为管理员
         boolean admin = isAdmin(request);
         if (!admin){
-            return false;
+            throw new BaseException(ErrorCode.NO_AUTH,"该用户不是管理员");
         }
         boolean result = this.removeById(id);
         if (!result){
-            return false;
+            throw new BaseException(ErrorCode.SYSTEM_ERROR,"删除用户失败");
         }
         return true;
     }
@@ -263,7 +264,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         Matcher matcher = compile.matcher(userAccount);
         //如果find找到成功之后，返回false
         if (matcher.find()) {
-            return false;
+            throw new BaseException(ErrorCode.PARAMS_ERROR,"用户账号含有特殊字符");
         }
         return true;
     }

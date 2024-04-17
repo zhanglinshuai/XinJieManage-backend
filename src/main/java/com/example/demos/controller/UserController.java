@@ -1,5 +1,9 @@
 package com.example.demos.controller;
 
+import com.example.demos.commons.BaseResponse;
+import com.example.demos.commons.ErrorCode;
+import com.example.demos.commons.ResultUtils;
+import com.example.demos.exception.BaseException;
 import com.example.demos.pojo.domain.User;
 import com.example.demos.request.LoginRequest;
 import com.example.demos.request.RegisterRequest;
@@ -22,10 +26,10 @@ public class UserController {
 
 
     @PostMapping("register")
-    public Long userRegister(@RequestBody RegisterRequest registerRequest) {
+    public BaseResponse<Long> userRegister(@RequestBody RegisterRequest registerRequest) {
         //请求参数非空校验
         if (registerRequest == null) {
-            return null;
+            throw new BaseException(ErrorCode.PARAMS_ERROR,"参数为空");
         }
         String userAccount = registerRequest.getUserAccount();
         String userPassword = registerRequest.getUserPassword();
@@ -33,129 +37,130 @@ public class UserController {
         String checkPassword = registerRequest.getCheckPassword();
         //参数非空校验
         if (StringUtils.isAnyBlank(userAccount, userPassword, checkPassword, planetCode)) {
-            return null;
+            throw new BaseException(ErrorCode.PARAMS_ERROR,"参数为空");
         }
         //账号长度最少为4位
         if (userAccount.length() < 4) {
-            return null;
+            throw new BaseException(ErrorCode.PARAMS_ERROR,"账号长度过短");
         }
         //密码长度最少为6位
         if (userPassword.length() < 6 || checkPassword.length() < 6) {
-            return null;
+            throw new BaseException(ErrorCode.PARAMS_ERROR,"密码长度过短");
         }
         //密码与校验密码是否相等
         if (!userPassword.equals(checkPassword)) {
-            return null;
+            throw new BaseException(ErrorCode.PARAMS_ERROR,"密码与校验密码不相等");
         }
         //星球编号长度最多为5位
         if (planetCode.length() > 4) {
-            return null;
+            throw new BaseException(ErrorCode.PARAMS_ERROR,"星球编号长度过长");
         }
         //校验用户账号是否含有非法字符
         boolean result = userService.verifyUserAccount(userAccount);
         if (!result) {
-            return null;
+            throw new BaseException(ErrorCode.PARAMS_ERROR,"用户账号含有特殊字符");
         }
         long userId = userService.userRegister(userAccount, userPassword, checkPassword, planetCode);
         if (userId < 0) {
-            return null;
+            throw new BaseException(ErrorCode.PARAMS_ERROR);
         }
-        return userId;
+        return ResultUtils.success(userId);
     }
 
     @PostMapping("/login")
-    public User userLogin(@RequestBody LoginRequest loginRequest, HttpServletRequest request) {
+    public BaseResponse<User> userLogin(@RequestBody LoginRequest loginRequest, HttpServletRequest request) {
         //用户非空判断
         if (loginRequest == null) {
-            return null;
+            throw new BaseException(ErrorCode.PARAMS_ERROR,"参数为空");
         }
         String userAccount = loginRequest.getUserAccount();
         String userPassword = loginRequest.getUserPassword();
         //参数非空判断
         if (StringUtils.isAnyBlank(userAccount, userPassword)) {
-            return null;
+            throw new BaseException(ErrorCode.PARAMS_ERROR,"参数为空");
         }
         //账号长度不少于4位
         if (userAccount.length() < 4) {
-            return null;
+            throw new BaseException(ErrorCode.PARAMS_ERROR,"账号长度过短");
         }
         //密码不少于6位
         if (userPassword.length() < 6) {
-            return null;
+            throw new BaseException(ErrorCode.PARAMS_ERROR,"密码长度过短");
         }
         //校验用户账号是否含有特殊字符
         boolean result = userService.verifyUserAccount(userAccount);
         if (!result) {
-            return null;
+            throw new BaseException(ErrorCode.PARAMS_ERROR,"账号含有特殊字符");
         }
-        return userService.userLogin(userAccount, userPassword, request);
+        User safetyUser = userService.userLogin(userAccount, userPassword, request);
+        return ResultUtils.success(safetyUser);
     }
 
 
     @PostMapping("/logout")
-    public boolean userLogout(HttpServletRequest request) {
+    public BaseResponse<Boolean> userLogout(HttpServletRequest request) {
         if (request == null) {
-            return false;
+            throw new BaseException(ErrorCode.PARAMS_ERROR);
         }
         boolean result = userService.userLogout(request);
         if (!result) {
-            return false;
+            throw new BaseException(ErrorCode.PARAMS_ERROR);
         }
-        return true;
+        return ResultUtils.success(true);
     }
 
 
     @GetMapping("/select/name")
-    public User selectUserByName(String username, HttpServletRequest request) {
+    public BaseResponse<User> selectUserByName(String username, HttpServletRequest request) {
         //参数判空
         if (StringUtils.isBlank(username)) {
-            return null;
+            throw new BaseException(ErrorCode.PARAMS_ERROR,"参数为空");
         }
         if (request == null) {
-            return null;
+            throw new BaseException(ErrorCode.PARAMS_ERROR);
         }
         //返回脱敏后的用户信息
         User user = userService.queryUserByName(username, request);
         if (user == null) {
-            return null;
+            throw new BaseException(ErrorCode.PARAMS_ERROR);
         }
-        return user;
+        return ResultUtils.success(user);
     }
 
     @GetMapping("/getCurrent")
-    public User getCurrentUser(HttpServletRequest request) {
+    public BaseResponse<User> getCurrentUser(HttpServletRequest request) {
         if (request == null) {
-            return null;
+            throw new BaseException(ErrorCode.PARAMS_ERROR);
         }
         User currentUser = userService.getCurrentUser(request);
         if (currentUser == null) {
-            return null;
+            throw new BaseException(ErrorCode.PARAMS_ERROR,"无法获取当前用户");
         }
-        return currentUser;
+        return ResultUtils.success(currentUser);
     }
 
     @GetMapping("/get/users")
-    public List<User> getUsers(HttpServletRequest request) {
+    public BaseResponse<List<User>> getUsers(HttpServletRequest request) {
         if (request == null) {
-            return new ArrayList<>();
+            throw new BaseException(ErrorCode.PARAMS_ERROR);
         }
         List<User> userList = userService.getUserList(request);
         if (CollectionUtils.isEmpty(userList)) {
-            return new ArrayList<>();
+            throw new BaseException(ErrorCode.PARAMS_ERROR);
         }
-        return userList;
+        return ResultUtils.success(userList);
     }
 
     @PostMapping("/deleteById")
-    public boolean deleteUserById(long id,HttpServletRequest request) {
+    public BaseResponse<Boolean> deleteUserById(long id,HttpServletRequest request) {
         if (id < 0) {
-            return false;
+            throw new BaseException(ErrorCode.PARAMS_ERROR);
         }
         boolean result = userService.deleteUserById(id, request);
         if (!result){
-            return false;
+            throw new BaseException(ErrorCode.SYSTEM_ERROR);
         }
-        return true;
+        return ResultUtils.success(true);
     }
 
 }
